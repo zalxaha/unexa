@@ -32,9 +32,9 @@ router.get('/api/list', async (req, res) => {
         return {
           name: f.name,
           isZip,
-          url: `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${BRANCH}/uploads/${f.name}`,
+          url: `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${BRANCH}/backups/${f.name}`,
           size: f.size ? `${(f.size/1024).toFixed(1)} KB` : null,
-          download: `https://github.com/${GH_OWNER}/${GH_REPO}/raw/${BRANCH}/uploads/${f.name}`
+          download: `https://github.com/${GH_OWNER}/${GH_REPO}/raw/${BRANCH}/backups/${f.name}`
         };
       });
 
