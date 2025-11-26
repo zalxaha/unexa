@@ -33,6 +33,7 @@
     [data-theme="dark"] .item-zip{border-color:#444;background:#333;}
 
     .dl-btn{padding:4px 7px;font-size:11px;border-radius:6px;font-weight:600;margin-top:4px;}
+    .muted { color:#6b7280; font-size:11px; }
 </style>
 </head>
 
@@ -83,6 +84,27 @@ function toggleView(){
     g.classList.toggle("gallery-grid");
 }
 
+// helper: aman parse tanggal jadi ISO YYYY-MM-DD
+function toIsoDateStringFromAny(value){
+    if(!value) return null;
+    // jika sudah ISO-like
+    if(typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+        return value.slice(0,10);
+    }
+    // coba parse via Date
+    const d = new Date(value);
+    if(isNaN(d)) return null;
+    return d.toISOString().slice(0,10);
+}
+
+// helper format tampilan tanggal ke id-ID (yyyy-mm-dd -> 26 November 2025)
+function formatDateDisplay(valueTimestampOrDate){
+    if(!valueTimestampOrDate) return "-";
+    const d = new Date(valueTimestampOrDate);
+    if(isNaN(d)) return "-";
+    return d.toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+}
+
 // load files
 async function loadGallery(){
     let gallery=document.getElementById('gallery');
@@ -92,32 +114,54 @@ async function loadGallery(){
         let res=await fetch("/api/list"),data=await res.json();
         if(!data.ok) throw Error(data.error||"Gagal mengambil data");
 
-        let files=data.files;
-        const date=document.getElementById('filterDate').value;
+        let files=data.files || [];
+        const dateInput=document.getElementById('filterDate').value; // YYYY-MM-DD
         const sort=document.getElementById('sortMode').value;
 
-        // filter tanggal
-        if(date) files=files.filter(f=>f.date?.slice(0,10)===date);
+        // prepare: attach isoDate (YYYY-MM-DD) derived from timestamp or date
+        files = files.map(f => {
+            let iso = null;
+            if(f.timestamp) {
+                // f.timestamp diharapkan ISO (contoh: 2025-11-11T11:16:40Z)
+                iso = toIsoDateStringFromAny(f.timestamp);
+            }
+            if(!iso && f.date) {
+                iso = toIsoDateStringFromAny(f.date);
+            }
+            return Object.assign({}, f, { isoDate: iso });
+        });
 
-        // sorting
-        files.sort((a,b)=>
-            sort==="newest" ? new Date(b.date)-new Date(a.date)
-                            : new Date(a.date)-new Date(b.date)
-        );
+        // filter tanggal (hanya jika ada input)
+        if(dateInput) {
+            files = files.filter(f => f.isoDate === dateInput);
+        }
 
-        if(!files.length) return gallery.innerHTML='<p class="text-center text-gray-500">Tidak ada file ditemukan.</p>';
+        // sorting berdasarkan timestamp (lebih akurat). fallback ke isoDate atau 0.
+        files.sort((a,b)=>{
+            const ta = a.timestamp ? Date.parse(a.timestamp) : (a.isoDate ? Date.parse(a.isoDate) : 0);
+            const tb = b.timestamp ? Date.parse(b.timestamp) : (b.isoDate ? Date.parse(b.isoDate) : 0);
+            return sort === 'newest' ? tb - ta : ta - tb;
+        });
+
+        if(!files.length) {
+            gallery.innerHTML = '<p class="text-center text-gray-500">Tidak ada file ditemukan.</p>';
+            return;
+        }
 
         gallery.innerHTML="";
         files.forEach(f=>{
+            // tampilkan tanggal yang rapi (gunakan timestamp jika ada, else isoDate)
+            const displayDate = f.timestamp ? formatDateDisplay(f.timestamp) : (f.isoDate ? formatDateDisplay(f.isoDate) : "unknown");
+
             gallery.innerHTML+=`
                 <div class="item-zip flex flex-col items-center">
                     
-                    <img src="https://files.catbox.moe/te1u3r.png" class="w-10 h-10" loading="lazy"/>
+                    <img src="https://files.catbox.moe/te1u3r.png" class="w-10 h-10" loading="lazy" alt="ikon file"/>
 
                     <span class="text-xs font-semibold break-all mt-1">${f.name}</span>
 
-                    <p class="text-[10px] text-gray-500 dark:text-gray-300 leading-[12px]">
-                        ${f.size || "-"} • ${f.date?.slice(0,10) || "unknown"}
+                    <p class="muted">
+                        ${f.size || "-"} • ${displayDate}
                     </p>
 
                     <a href="${f.url}" download class="dl-btn bg-indigo-500 text-white hover:bg-indigo-600">
