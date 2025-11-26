@@ -122,15 +122,25 @@ async function loadGallery(){
         if(!data.ok) throw Error(data.error||"Gagal mengambil data");
         const date=document.getElementById('filterDate').value;
 
-        let files=data.files.filter(f=>f.isZip && (!date || f.date?.slice(0,10)==date));
-        if(!files.length) return gallery.innerHTML='<p class="text-center text-gray-500">Tidak ada file ZIP ditemukan.</p>';
+        // **BARIS YANG DIPERBAIKI:**
+        // Hanya memfilter berdasarkan tanggal jika ada, dan tidak lagi memfilter berdasarkan f.isZip.
+        let files = data.files; 
+        if (date) {
+            files = data.files.filter(f => f.date?.slice(0, 10) === date);
+        }
+
+        if(!files.length) return gallery.innerHTML='<p class="text-center text-gray-500">Tidak ada file ditemukan.</p>'; // Pesan diubah
 
         gallery.innerHTML="";
         files.forEach(f=>{
+            // Mengubah ikon menjadi ikon dokumen umum, karena file tidak lagi hanya ZIP.
+            // Anda mungkin perlu menyesuaikan ikon berdasarkan jenis file yang sebenarnya (misalnya, menggunakan f.extension jika tersedia).
+            const iconSvg = `<svg class="w-10 h-10 text-indigo-500" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM6 20V4h7v4h4v12H6z"/></svg>`;
+            
             gallery.innerHTML+=`
             <div class="item-zip">
                 <a href="${f.url}" download class="flex flex-col items-center gap-2">
-                    <svg class="w-10 h-10 text-indigo-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 10H7v2h2zM7 14h2v2H7zM15 10h2v2h-2zM15 14h2v2h-2z"/><path d="M4 5h6l2 2h8v12H4z"/></svg>
+                    ${iconSvg}
                     <span class="text-xs break-all">${f.name}</span>
                 </a>
             </div>`;
