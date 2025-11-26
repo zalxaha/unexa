@@ -4,7 +4,9 @@ require('dotenv').config();
 
 const router = express.Router();
 
-const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+const octokit = new Octokit({
+  auth: process.env.GITHUB_TOKEN
+});
 
 const GH_OWNER = process.env.GH_OWNER;
 const GH_REPO = process.env.GH_REPO;
@@ -19,32 +21,33 @@ router.get('/api/list', async (req, res) => {
       ref: BRANCH
     });
 
+    /** 🔥 FIX PENTING
+        → sebelumnya kamu pakai filter ZIP sehingga file lain & ZIP tidak terbaca
+        → sekarang semua file diambil, zip/non-zip tetap tampil
+    **/
     const files = data
-      // Hanya ambil file dan filter yang memiliki ekstensi .zip
-      .filter(f => f.type === 'file' && f.name.toLowerCase().endsWith('.zip'))
+      .filter(f => f.type === 'file') // ambil semua file
       .map(f => {
-        const [timestamp, ...rest] = f.name.split('-');
-        // Nama yang sudah bersih tanpa timestamp
-        const name = rest.join('-') || f.name; 
-        const tsNumber = Number(timestamp);
-        // Cek validitas timestamp (asumsi timestamp ms)
-        const isValid = !isNaN(tsNumber) && tsNumber > 1e12; 
-
+        const isZip = f.name.toLowerCase().endsWith('.zip');
         return {
-          name: name,
+          name: f.name,
+          isZip,
           url: `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${BRANCH}/uploads/${f.name}`,
-          isZip: true, // Selalu true karena sudah difilter
-          date: isValid ? new Date(tsNumber).toISOString() : null
+          size: f.size ? `${(f.size/1024).toFixed(1)} KB` : null,
+          download: `https://github.com/${GH_OWNER}/${GH_REPO}/raw/${BRANCH}/uploads/${f.name}`
         };
       });
 
-    res.json({ ok: true, files });
+    return res.json({ ok: true, count: files.length, files });
+
   } catch (err) {
-    // Tangani error jika direktori 'uploads' tidak ditemukan atau error lainnya
+
+    // Jika folder tidak ada
     if (err.status === 404) {
-        return res.status(200).json({ ok: true, files: [], message: 'Direktori uploads kosong atau tidak ditemukan.' });
+      return res.json({ ok: true, files: [], message: "Folder uploads kosong / belum ada file." });
     }
-    res.status(500).json({ error: err.message });
+
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
