@@ -17,7 +17,7 @@ router.get('/api/list', async (req, res) => {
     const { data } = await octokit.repos.getContent({
       owner: GH_OWNER,
       repo: GH_REPO,
-      path: 'uploads',
+      path: 'backups',
       ref: BRANCH
     });
 
